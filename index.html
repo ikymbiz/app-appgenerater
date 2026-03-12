@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>プロダクト発想AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="manifest" id="manifest-placeholder">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+    
+    :root {
+      --primary: #3b82f6;
+      --bg-color: #f8fafc;
+      --text-main: #1e293b;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    /* モバイルファーストの最大幅制限と中央配置 */
+    #app-container {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: white;
+      box-shadow: 0 0 20px rgba(0,0,0,0.05);
+      position: relative;
+    }
+
+    /* モダン・クリーンUI用グラスモーフィズム */
+    .glass-header {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    /* アニメーション */
+    .fade-in { animation: fadeIn 0.3s ease-in-out forwards; }
+    .slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    /* ローダー */
+    .radar-spinner {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      border-top-color: var(--primary);
+      border-right-color: var(--primary);
+      animation: spin 1s linear infinite;
+      position: relative;
+    }
+    .radar-spinner::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px; right: 2px; bottom: 2px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      border-top-color: #93c5fd;
+      animation: spin 2s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .hide { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div id="app-container" class="flex flex-col h-screen overflow-hidden relative">
+
+  <!-- Header -->
+  <header class="glass-header sticky top-0 z-40 px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center gap-2">
+      <div class="bg-blue-500 text-white p-2 rounded-lg shadow-sm">
+        <i class="fa-solid fa-lightbulb"></i>
+      </div>
+      <h1 class="text-lg font-bold tracking-tight">プロダクト発想AI</h1>
+    </div>
+    <div class="flex gap-3 text-slate-500">
+      <button id="btn-history" class="p-2 hover:bg-slate-100 rounded-full transition"><i class="fa-solid fa-clock-rotate-left"></i></button>
+      <button id="btn-settings" class="p-2 hover:bg-slate-100 rounded-full transition"><i class="fa-solid fa-gear"></i></button>
+    </div>
+  </header>
+
+  <!-- Main Scrollable Area -->
+  <main class="flex-1 overflow-y-auto p-4 pb-24 relative" id="main-content">
+    
+    <!-- Hero / Action Area -->
+    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 mb-6 border border-blue-100 shadow-sm text-center slide-up">
+      <h2 class="text-xl font-bold text-slate-800 mb-2">最新トレンドからアイデアを発見</h2>
+      <p class="text-sm text-slate-600 mb-6">AIがニュースやSNSを分析し、解決すべき「不満・不安・不便(3F)」から1日で実装可能なMVPを提案します。</p>
+      
+      <button id="btn-generate" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-md shadow-blue-500/30 transition transform active:scale-95 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <span>発想を開始する</span>
+      </button>
+
+      <!-- Alert if API key missing -->
+      <div id="api-alert" class="mt-4 text-xs text-red-500 bg-red-50 p-2 rounded-lg border border-red-200 hide flex items-center gap-2 text-left">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>設定からGemini APIキーを入力してください。</span>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="hide flex flex-col items-center justify-center py-10 fade-in">
+      <div class="radar-spinner mb-4"></div>
+      <p class="text-slate-600 font-medium" id="loading-text">トレンド情報を収集中...</p>
+      <p class="text-xs text-slate-400 mt-2">※バックグラウンドで処理中。スリープしません。</p>
+    </div>
+
+    <!-- Results Area -->
+    <div id="result-area" class="hide space-y-6 fade-in pb-10">
+      
+      <!-- 3F Topics -->
+      <section>
+        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-magnifying-glass-chart text-blue-500"></i> 発見された3Fトピック
+        </h3>
+        <ul id="topics-list" class="space-y-2">
+          <!-- Topics will be injected here -->
+        </ul>
+      </section>
+
+      <!-- Best Idea -->
+      <section class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm slide-up relative overflow-hidden">
+        <div class="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">BEST IDEA</div>
+        
+        <h3 class="text-2xl font-bold text-slate-800 mt-2 mb-1" id="res-app-name">-</h3>
+        <p class="text-sm font-medium text-blue-600 mb-4" id="res-concept">-</p>
+        
+        <div class="bg-slate-50 rounded-xl p-3 mb-4 text-sm">
+          <span class="font-bold text-slate-700 block mb-1">ターゲット</span>
+          <span id="res-target" class="text-slate-600">-</span>
+        </div>
+
+        <div class="mb-4">
+          <h4 class="font-bold text-slate-700 text-sm mb-2 border-b pb-1">主要機能 (MVP)</h4>
+          <ul id="res-features" class="list-disc list-inside text-sm text-slate-600 space-y-1 pl-1"></ul>
+        </div>
+
+        <div class="mb-4">
+          <h4 class="font-bold text-slate-700 text-sm mb-2 border-b pb-1">画面構成</h4>
+          <ul id="res-ui" class="list-disc list-inside text-sm text-slate-600 space-y-1 pl-1"></ul>
+        </div>
+
+        <div class="mb-4">
+          <h4 class="font-bold text-slate-700 text-sm mb-2 border-b pb-1">推奨技術スタック</h4>
+          <div id="res-stack" class="flex flex-wrap gap-2 mt-2"></div>
+        </div>
+
+      </section>
+
+      <!-- Reasoning Framework -->
+      <section class="bg-slate-800 text-white rounded-2xl p-5 shadow-sm slide-up">
+        <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-brain text-indigo-400"></i> 選定理由・フレームワーク分析
+        </h3>
+        <p class="text-sm text-slate-200 mb-4 leading-relaxed" id="res-impact">-</p>
+        
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div class="bg-slate-700 p-3 rounded-lg">
+            <span class="block text-xs text-indigo-300 font-bold mb-1"><i class="fa-solid fa-calculator"></i> 計算</span>
+            <span id="res-fw-calc" class="text-slate-200 text-xs">-</span>
+          </div>
+          <div class="bg-slate-700 p-3 rounded-lg">
+            <span class="block text-xs text-indigo-300 font-bold mb-1"><i class="fa-solid fa-language"></i> 翻訳</span>
+            <span id="res-fw-trans" class="text-slate-200 text-xs">-</span>
+          </div>
+          <div class="bg-slate-700 p-3 rounded-lg">
+            <span class="block text-xs text-indigo-300 font-bold mb-1"><i class="fa-solid fa-scale-balanced"></i> 判定</span>
+            <span id="res-fw-judge" class="text-slate-200 text-xs">-</span>
+          </div>
+          <div class="bg-slate-700 p-3 rounded-lg">
+            <span class="block text-xs text-indigo-300 font-bold mb-1"><i class="fa-solid fa-handshake"></i> マッチング</span>
+            <span id="res-fw-match" class="text-slate-200 text-xs">-</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+</div>
+
+<!-- Modals & Overlays -->
+
+<!-- Settings Modal -->
+<div id="modal-settings" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex justify-center items-end sm:items-center hide">
+  <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl h-[85vh] sm:h-auto overflow-hidden flex flex-col slide-up">
+    <div class="flex justify-between items-center p-4 border-b">
+      <h3 class="font-bold text-lg"><i class="fa-solid fa-gear text-slate-400 mr-2"></i>設定</h3>
+      <button class="modal-close p-2 text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark fa-lg"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto flex-1 space-y-6">
+      
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-1">Gemini API Key <span class="text-red-500">*</span></label>
+        <input type="password" id="input-gemini-key" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="AI Studioで取得したキー">
+        <p class="text-xs text-slate-500 mt-1">※Gemini 2.5 Flashを利用します。ローカルにのみ保存されます。</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-1">GNews API Key (オプション)</label>
+        <input type="password" id="input-gnews-key" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="gnews.ioのキー">
+        <p class="text-xs text-slate-500 mt-1">※入力するとより正確な最新ニュースを取得します。未入力時はAIの知識ベースに依存します。</p>
+      </div>
+
+      <div class="border-t pt-4">
+        <h4 class="font-bold text-sm text-slate-700 mb-3"><i class="fa-solid fa-database text-slate-400 mr-1"></i>データ管理</h4>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-export" class="bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-3 rounded-lg text-sm font-medium transition"><i class="fa-solid fa-download mr-1"></i> エクスポート</button>
+          <label class="bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-3 rounded-lg text-sm font-medium transition cursor-pointer text-center">
+            <i class="fa-solid fa-upload mr-1"></i> インポート
+            <input type="file" id="input-import" class="hidden" accept=".json">
+          </label>
+        </div>
+      </div>
+
+      <div class="border-t pt-4">
+        <h4 class="font-bold text-sm text-slate-700 mb-3"><i class="fa-solid fa-clock-rotate-left text-slate-400 mr-1"></i>5世代バックアップ復元</h4>
+        <ul id="backup-list" class="space-y-2 text-sm">
+          <li class="text-slate-400 text-xs">バックアップがありません</li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="p-4 border-t bg-slate-50">
+      <button id="btn-save-settings" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl transition">保存して閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div id="modal-history" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex justify-center items-end sm:items-center hide">
+  <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl h-[85vh] sm:h-auto max-h-[85vh] overflow-hidden flex flex-col slide-up">
+    <div class="flex justify-between items-center p-4 border-b">
+      <h3 class="font-bold text-lg"><i class="fa-solid fa-clock-rotate-left text-slate-400 mr-2"></i>生成履歴</h3>
+      <button class="modal-close p-2 text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark fa-lg"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto flex-1 bg-slate-50" id="history-container">
+      <!-- History Items -->
+      <div id="history-empty" class="text-center py-10 text-slate-400 text-sm">
+        履歴がありません
+      </div>
+      <div id="history-list" class="space-y-3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-opacity duration-300 opacity-0 pointer-events-none z-[60]">
+  Message
+</div>
+
+
+<script>
+/**
+ * PWA Manifest (Data URI fallback for single file app)
+ */
+const manifestStr = JSON.stringify({
+  "name": "プロダクト発想AI",
+  "short_name": "発想AI",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#3b82f6",
+  "icons": [{"src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%233b82f6'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>AI</text></svg>","sizes": "192x192","type": "image/svg+xml"}]
+});
+document.getElementById('manifest-placeholder').href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestStr);
+
+/**
+ * Web Worker Code (Blob URL)
+ * UIスレッドをブロックせずAI API通信とJSONパースを行う
+ */
+const workerCode = `
+self.onmessage = async function(e) {
+  const { type, payload } = e.data;
+  
+  if (type === 'GENERATE') {
+    try {
+      let newsContext = "現在最新の日本国内のニュース、SNSのトレンド、季節性の悩み（現在月に応じたもの）を想定してください。";
+      
+      // オプション: GNews APIで現実の最新ニュースを取得
+      if (payload.gnewsKey) {
+        try {
+          const res = await fetch(\`https://gnews.io/api/v4/top-headlines?category=general&lang=ja&country=jp&max=5&apikey=\${payload.gnewsKey}\`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.articles && data.articles.length > 0) {
+              newsContext = "最新ニューストレンド（これを参考にしてください）:\\n" + data.articles.map(a => "- " + a.title + ": " + a.description).join("\\n");
+            }
+          }
+        } catch(err) {
+          console.warn('News API fetch failed, falling back to AI knowledge.', err);
+        }
+      }
+
+      const prompt = \`
+あなたは最新トレンドを即座にアプリ化する「自律型プロダクトマネージャー」です。
+以下のコンテキストをもとに、MVP要件を生成してください。必ずJSON形式で出力してください。
+
+【コンテキスト情報】
+\${newsContext}
+
+【ステップ1】
+上記のトレンドや日本の現状から、人々が「不満・不安・不便（3F）」を感じているトピックを具体的に3つピックアップしてください。
+
+【ステップ2】
+3つのうち、最も「1日でアプリ化（プロトタイプ作成）が可能」で、かつ「解決した時のインパクトが大きい」ものを1つ選んでください。
+選んだ理由を、『計算・翻訳・判定・マッチング』のフレームワークに当てはめて説明してください。
+
+【ステップ3】
+選んだネタについて、以下の要件を定義してください。
+- アプリ名
+- コンセプト
+- ターゲット
+- 主要機能（1日で実装できる最小限のもの）
+- 画面構成（必要なUIパーツ）
+- 推奨技術スタック
+
+【出力JSONフォーマット】
+{
+  "topics": [
+    {"title": "トピック名1", "desc": "説明"},
+    {"title": "トピック名2", "desc": "説明"},
+    {"title": "トピック名3", "desc": "説明"}
+  ],
+  "selected_idea": {
+    "app_name": "アプリ名",
+    "concept": "コンセプト",
+    "target": "ターゲット",
+    "core_features": ["機能1", "機能2"],
+    "ui_components": ["UI1", "UI2"],
+    "tech_stack": ["技術1", "技術2"]
+  },
+  "reasoning": {
+    "impact_and_feasibility": "全体的な選定理由",
+    "framework": {
+      "calculation": "計算の観点での価値",
+      "translation": "翻訳の観点での価値",
+      "judgment": "判定の観点での価値",
+      "matching": "マッチングの観点での価値"
+    }
+  }
+}
+\`;
+
+      const geminiRes = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${payload.geminiKey}\`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { 
+            response_mime_type: "application/json",
+            temperature: 0.7
+          }
+        })
+      });
+
+      const geminiData = await geminiRes.json();
+      
+      if (geminiData.error) {
+        throw new Error(geminiData.error.message || "Gemini API Error");
+      }
+
+      const textResult = geminiData.candidates[0].content.parts[0].text;
+      const resultJson = JSON.parse(textResult);
+
+      self.postMessage({ type: 'SUCCESS', payload: resultJson });
+
+    } catch (error) {
+      self.postMessage({ type: 'ERROR', payload: error.message });
+    }
+  }
+};
+`;
+
+/**
+ * IndexedDB Wrapper
+ */
+const DB_NAME = 'ProductIdeaDB';
+const DB_VERSION = 1;
+
+const DB = {
+  db: null,
+  async init() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+        if (!db.objectStoreNames.contains('history')) db.createObjectStore('history', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('backups')) db.createObjectStore('backups', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('state')) db.createObjectStore('state', { keyPath: 'key' }); // Resume用
+      };
+      req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
+  async get(storeName, key) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readonly');
+      const req = tx.objectStore(storeName).get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.value : null);
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async put(storeName, item) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readwrite');
+      const req = tx.objectStore(storeName).put(item);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async getAll(storeName) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readonly');
+      const req = tx.objectStore(storeName).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async delete(storeName, key) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readwrite');
+      const req = tx.objectStore(storeName).delete(key);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  },
+  async clear(storeName) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, 'readwrite');
+      const req = tx.objectStore(storeName).clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+};
+
+/**
+ * Main Application Logic
+ */
+const App = {
+  worker: null,
+  wakeLock: null,
+  settings: { geminiKey: '', gnewsKey: '' },
+  currentData: null,
+  isGenerating: false,
+
+  async init() {
+    await DB.init();
+    await this.loadSettings();
+    this.initWorker();
+    this.bindUI();
+    this.checkResumeState();
+    
+    // Service Worker (PWA) - 疑似オフライン動作のためにIndexedDBにデータがあるため、
+    // ここでは1ファイル制約に合わせたシンプルなCache APIフォールバックを試みるが、
+    // セキュリティ制約回避のためローカルDBファーストで構築済。
+  },
+
+  initWorker() {
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    this.worker = new Worker(URL.createObjectURL(blob));
+    
+    this.worker.onmessage = async (e) => {
+      const { type, payload } = e.data;
+      if (type === 'SUCCESS') {
+        this.currentData = payload;
+        await this.saveHistory(payload);
+        this.showResult(payload);
+        this.showToast('生成が完了しました');
+      } else if (type === 'ERROR') {
+        alert('エラーが発生しました: ' + payload);
+        this.resetUI();
+      }
+      this.isGenerating = false;
+      await this.releaseWakeLock();
+      await DB.delete('state', 'resume'); // 正常終了またはエラーでレジューム破棄
+    };
+  },
+
+  async loadSettings() {
+    const gemini = await DB.get('settings', 'geminiKey');
+    const gnews = await DB.get('settings', 'gnewsKey');
+    if (gemini) this.settings.geminiKey = gemini;
+    if (gnews) this.settings.gnewsKey = gnews;
+
+    document.getElementById('input-gemini-key').value = this.settings.geminiKey || '';
+    document.getElementById('input-gnews-key').value = this.settings.gnewsKey || '';
+
+    if (!this.settings.geminiKey) {
+      document.getElementById('api-alert').classList.remove('hide');
+    } else {
+      document.getElementById('api-alert').classList.add('hide');
+    }
+  },
+
+  async saveSettings() {
+    const gemini = document.getElementById('input-gemini-key').value.trim();
+    const gnews = document.getElementById('input-gnews-key').value.trim();
+    
+    await DB.put('settings', { key: 'geminiKey', value: gemini });
+    await DB.put('settings', { key: 'gnewsKey', value: gnews });
+    
+    this.settings.geminiKey = gemini;
+    this.settings.gnewsKey = gnews;
+    
+    if (gemini) document.getElementById('api-alert').classList.add('hide');
+    else document.getElementById('api-alert').classList.remove('hide');
+    
+    this.showToast('設定を保存しました');
+    this.closeModals();
+  },
+
+  async generateIdea() {
+    if (!this.settings.geminiKey) {
+      alert('設定からGemini APIキーを入力してください。');
+      this.openModal('modal-settings');
+      return;
+    }
+
+    this.isGenerating = true;
+    this.updateUIForLoading(true);
+    await this.requestWakeLock();
+    
+    // レジューム用データ保存 (クラッシュ対策)
+    await DB.put('state', { key: 'resume', value: { timestamp: Date.now(), status: 'generating' } });
+
+    // Workerへメッセージ送信
+    this.worker.postMessage({
+      type: 'GENERATE',
+      payload: {
+        geminiKey: this.settings.geminiKey,
+        gnewsKey: this.settings.gnewsKey
+      }
+    });
+
+    // テキストアニメーション
+    const texts = ["トレンド情報を収集中...", "3Fトピックを抽出中...", "MVP要件を定義中...", "フレームワーク分析中..."];
+    let i = 0;
+    this.loadingInterval = setInterval(() => {
+      i = (i + 1) % texts.length;
+      document.getElementById('loading-text').innerText = texts[i];
+    }, 3000);
+  },
+
+  // ----------------------------------------------------
+  // Wake Lock (Screen Sleep Prevention)
+  // ----------------------------------------------------
+  async requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        this.wakeLock = await navigator.wakeLock.request('screen');
+        this.wakeLock.addEventListener('release', () => {
+          console.log('Wake Lock released');
+        });
+      }
+    } catch (err) {
+      console.warn(`Wake Lock error: ${err.name}, ${err.message}`);
+    }
+  },
+
+  async releaseWakeLock() {
+    if (this.wakeLock !== null) {
+      await this.wakeLock.release();
+      this.wakeLock = null;
+    }
+  },
+
+  // ----------------------------------------------------
+  // Data Persistence & Validations
+  // ----------------------------------------------------
+  validateData(data) {
+    try {
+      if (!data || !data.topics || !Array.isArray(data.topics) || data.topics.length !== 3) return false;
+      if (!data.selected_idea || !data.selected_idea.app_name) return false;
+      if (!data.reasoning || !data.reasoning.framework) return false;
+      return true;
+    } catch(e) { return false; }
+  },
+
+  async saveHistory(data) {
+    if (!this.validateData(data)) {
+      console.error('Data validation failed');
+      return;
+    }
+
+    const historyItem = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      data: data
+    };
+    await DB.put('history', historyItem);
+    await this.createBackup();
+  },
+
+  async createBackup() {
+    // 現在の全履歴を取得
+    const allHistory = await DB.getAll('history');
+    const backupId = Date.now().toString();
+    
+    await DB.put('backups', {
+      id: backupId,
+      timestamp: Date.now(),
+      history: allHistory
+    });
+
+    // 5世代維持、古いものを削除
+    let backups = await DB.getAll('backups');
+    backups.sort((a, b) => b.timestamp - a.timestamp); // 最新順
+    if (backups.length > 5) {
+      for (let i = 5; i < backups.length; i++) {
+        await DB.delete('backups', backups[i].id);
+      }
+    }
+    this.renderBackupList();
+  },
+
+  async loadBackup(backupId) {
+    if(!confirm('現在の履歴を上書きして、このバックアップを復元しますか？')) return;
+    const backup = await DB.get('backups', backupId);
+    if (backup && backup.history) {
+      await DB.clear('history');
+      for (const item of backup.history) {
+        await DB.put('history', item);
+      }
+      this.showToast('バックアップを復元しました');
+      this.closeModals();
+    }
+  },
+
+  async checkResumeState() {
+    const resume = await DB.get('state', 'resume');
+    if (resume && resume.value.status === 'generating') {
+      // 前回途中で落ちた場合
+      if(confirm('前回、生成途中で中断されました。再度生成を開始しますか？')) {
+        this.generateIdea();
+      } else {
+        await DB.delete('state', 'resume');
+      }
+    } else {
+      // 最新の履歴があれば表示する（オートセーブ効果）
+      const history = await DB.getAll('history');
+      if (history.length > 0) {
+        history.sort((a,b) => b.timestamp - a.timestamp);
+        this.showResult(history[0].data);
+      }
+    }
+  },
+
+  // ----------------------------------------------------
+  // Import / Export
+  // ----------------------------------------------------
+  async exportData() {
+    const history = await DB.getAll('history');
+    const settings = { geminiKey: this.settings.geminiKey, gnewsKey: this.settings.gnewsKey };
+    const exportObj = { version: 1, date: Date.now(), settings, history };
+    
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `product-idea-ai-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    this.showToast('エクスポートしました');
+  },
+
+  async importData(file) {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.version && data.history) {
+          await DB.clear('history');
+          for(const item of data.history) await DB.put('history', item);
+          
+          if (data.settings) {
+            await DB.put('settings', { key: 'geminiKey', value: data.settings.geminiKey || '' });
+            await DB.put('settings', { key: 'gnewsKey', value: data.settings.gnewsKey || '' });
+            await this.loadSettings();
+          }
+          await this.createBackup(); // インポート直後もバックアップ
+          this.showToast('データをインポートしました');
+          this.closeModals();
+          
+          // 再読み込み的に最新を表示
+          const history = await DB.getAll('history');
+          if (history.length > 0) {
+            history.sort((a,b) => b.timestamp - a.timestamp);
+            this.showResult(history[0].data);
+          }
+        } else {
+          throw new Error('Invalid format');
+        }
+      } catch (err) {
+        alert('インポートに失敗しました。ファイル形式が正しいか確認してください。');
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  // ----------------------------------------------------
+  // UI Updates
+  // ----------------------------------------------------
+  updateUIForLoading(isLoading) {
+    const btn = document.getElementById('btn-generate');
+    const loadingState = document.getElementById('loading-state');
+    const resultArea = document.getElementById('result-area');
+
+    if (isLoading) {
+      btn.disabled = true;
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+      loadingState.classList.remove('hide');
+      resultArea.classList.add('hide');
+      document.getElementById('main-content').scrollTo({top: 0, behavior: 'smooth'});
+    } else {
+      btn.disabled = false;
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      loadingState.classList.add('hide');
+      clearInterval(this.loadingInterval);
+    }
+  },
+
+  resetUI() {
+    this.updateUIForLoading(false);
+  },
+
+  showResult(data) {
+    this.updateUIForLoading(false);
+    document.getElementById('result-area').classList.remove('hide');
+    
+    // Topics
+    const topicsList = document.getElementById('topics-list');
+    topicsList.innerHTML = data.topics.map((t, i) => `
+      <li class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex gap-3 items-start">
+        <div class="bg-slate-100 text-slate-500 rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">${i+1}</div>
+        <div>
+          <h4 class="font-bold text-slate-800 text-sm">${t.title}</h4>
+          <p class="text-xs text-slate-500 mt-1">${t.desc}</p>
+        </div>
+      </li>
+    `).join('');
+
+    // Idea
+    const idea = data.selected_idea;
+    document.getElementById('res-app-name').innerText = idea.app_name;
+    document.getElementById('res-concept').innerText = idea.concept;
+    document.getElementById('res-target').innerText = idea.target;
+    
+    document.getElementById('res-features').innerHTML = idea.core_features.map(f => `<li>${f}</li>`).join('');
+    document.getElementById('res-ui').innerHTML = idea.ui_components.map(u => `<li>${u}</li>`).join('');
+    
+    document.getElementById('res-stack').innerHTML = idea.tech_stack.map(s => 
+      `<span class="bg-blue-50 text-blue-700 border border-blue-200 text-xs px-2.5 py-1 rounded-md font-medium">${s}</span>`
+    ).join('');
+
+    // Reasoning
+    const reason = data.reasoning;
+    document.getElementById('res-impact').innerText = reason.impact_and_feasibility;
+    document.getElementById('res-fw-calc').innerText = reason.framework.calculation;
+    document.getElementById('res-fw-trans').innerText = reason.framework.translation;
+    document.getElementById('res-fw-judge').innerText = reason.framework.judgment;
+    document.getElementById('res-fw-match').innerText = reason.framework.matching;
+
+    // スムーズスクロール
+    setTimeout(() => {
+      document.getElementById('result-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  },
+
+  async openHistory() {
+    const listEl = document.getElementById('history-list');
+    const emptyEl = document.getElementById('history-empty');
+    listEl.innerHTML = '';
+    
+    const history = await DB.getAll('history');
+    if (history.length === 0) {
+      emptyEl.classList.remove('hide');
+      listEl.classList.add('hide');
+    } else {
+      emptyEl.classList.add('hide');
+      listEl.classList.remove('hide');
+      
+      history.sort((a, b) => b.timestamp - a.timestamp);
+      
+      history.forEach(item => {
+        const date = new Date(item.timestamp).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+        const div = document.createElement('div');
+        div.className = 'bg-white p-3 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-blue-400 transition';
+        div.innerHTML = `
+          <div class="text-xs text-slate-400 mb-1">${date}</div>
+          <div class="font-bold text-slate-800 text-sm">${item.data.selected_idea.app_name}</div>
+          <div class="text-xs text-slate-500 truncate mt-1">${item.data.selected_idea.concept}</div>
+        `;
+        div.onclick = () => {
+          this.showResult(item.data);
+          this.closeModals();
+        };
+        listEl.appendChild(div);
+      });
+    }
+    this.openModal('modal-history');
+  },
+
+  async renderBackupList() {
+    const listEl = document.getElementById('backup-list');
+    const backups = await DB.getAll('backups');
+    backups.sort((a, b) => b.timestamp - a.timestamp);
+
+    if (backups.length === 0) {
+      listEl.innerHTML = '<li class="text-slate-400 text-xs">バックアップがありません</li>';
+      return;
+    }
+
+    listEl.innerHTML = backups.map((b, i) => `
+      <li class="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-100">
+        <span class="text-xs text-slate-600">世代${i+1} (${new Date(b.timestamp).toLocaleString()})</span>
+        <button class="text-xs bg-white border border-slate-300 px-2 py-1 rounded hover:bg-slate-100 transition" onclick="App.loadBackup('${b.id}')">復元</button>
+      </li>
+    `).join('');
+  },
+
+  // ----------------------------------------------------
+  // UI Helpers (Modals & Toasts)
+  // ----------------------------------------------------
+  openModal(id) {
+    if(id === 'modal-settings') this.renderBackupList();
+    document.getElementById(id).classList.remove('hide');
+  },
+  
+  closeModals() {
+    document.querySelectorAll('.fixed.inset-0').forEach(el => el.classList.add('hide'));
+  },
+
+  showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.innerText = msg;
+    toast.classList.remove('opacity-0');
+    setTimeout(() => { toast.classList.add('opacity-0'); }, 3000);
+  },
+
+  // ----------------------------------------------------
+  // Events Binding
+  // ----------------------------------------------------
+  bindUI() {
+    document.getElementById('btn-generate').addEventListener('click', () => this.generateIdea());
+    
+    document.getElementById('btn-settings').addEventListener('click', () => this.openModal('modal-settings'));
+    document.getElementById('btn-history').addEventListener('click', () => this.openHistory());
+    
+    document.getElementById('btn-save-settings').addEventListener('click', () => this.saveSettings());
+    
+    document.querySelectorAll('.modal-close').forEach(btn => {
+      btn.addEventListener('click', () => this.closeModals());
+    });
+
+    document.getElementById('btn-export').addEventListener('click', () => this.exportData());
+    document.getElementById('input-import').addEventListener('change', (e) => {
+      if(e.target.files.length > 0) this.importData(e.target.files[0]);
+    });
+
+    // モーダル外枠クリックで閉じる
+    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if(e.target === modal) this.closeModals();
+      });
+    });
+
+    // Page Visibility API for Auto-save & Resume logic
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === 'hidden' && this.isGenerating) {
+        // バックグラウンドに回った時の処理（WakeLockはOSによっては外れるため再取得が必要だが、Workerは動き続ける）
+        console.log("App backgrounded while generating");
+      }
+      if (document.visibilityState === 'visible' && this.isGenerating) {
+        this.requestWakeLock(); // 復帰時に再度WakeLock要求
+      }
+    });
+  }
+};
+
+// Initialize App
+document.addEventListener('DOMContentLoaded', () => {
+  App.init();
+});
+
+</script>
+</body>
+</html>
